@@ -1,9 +1,20 @@
 import os
+from multiprocessing.pool import ThreadPool
 
 import lxml
 import requests
 from bs4 import BeautifulSoup
 
+
+def fetch_url(entry):
+	path, uri = entry
+	if not os.path.exists(path):
+		r = requests.get(uri, stream=True)
+		if r.status_code == 200:
+			with open(path, 'wb') as f:
+				for chunk in r:
+					f.write(chunk)
+	return path
 
 class ZomatoScraper():
 
@@ -72,10 +83,22 @@ def easy_download(image_count = 10, resturant_url = 'https://www.zomato.com/chen
 	scrap.get_image_urls()
 	path = os.path.dirname (os.path.realpath('__file__') )
 	path += '/images/'
-	scrap.download_images(download_path = path)
+	urls = []
+	counter = 1
+	for url in scrap.photo_urls:
+		urls.append( (path + str(counter) + '.jpg',url) )
+		counter += 1
+	results = ThreadPool(8).imap_unordered(fetch_url, urls)
+	for path in results:
+		print (path)
+	# scrap.download_images(download_path = path)
 	
 def main():
+	import time
+	start = time.time()
 	easy_download()
+	end = time.time()
+	print (end-start)
 
         
 main()
